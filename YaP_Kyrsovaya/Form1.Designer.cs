@@ -84,9 +84,9 @@
             this.menuPanel.Controls.Add(this.exitButton);
             this.menuPanel.Controls.Add(this.startButton);
             this.menuPanel.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.menuPanel.Location = new System.Drawing.Point(0, 0);
+            this.menuPanel.Location = new System.Drawing.Point(0, 24);
             this.menuPanel.Name = "menuPanel";
-            this.menuPanel.Size = new System.Drawing.Size(320, 351);
+            this.menuPanel.Size = new System.Drawing.Size(320, 327);
             this.menuPanel.TabIndex = 1;
             // 
             // scoreboardButton

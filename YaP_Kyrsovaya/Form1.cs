@@ -114,6 +114,11 @@ namespace YaP_Kyrsovaya
 
                         worksheet.Cells[10 * i + j + 2, 1].Value = winNickname;
                         worksheet.Cells[10 * i + j + 2, 2].Value = winTime;
+                        for (int k = j + 1; k < scoreboard.GetLength(1); k++) // Сдвиг всех результатов на 1 вниз
+                        {
+                            worksheet.Cells[10 * i + k + 2, 1].Value = scoreboard[i, k - 1].Item1;
+                            worksheet.Cells[10 * i + k + 2, 2].Value = scoreboard[i, k - 1].Item2;
+                        }
                         package.Save();
                         InitializeScoreboardTable(); // Обновление таблицы
                         break;
