@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.gameMenuStrip = new System.Windows.Forms.MenuStrip();
             this.restartToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.TipToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -35,9 +36,9 @@
             this.menuPanel = new System.Windows.Forms.Panel();
             this.scoreboardButton = new System.Windows.Forms.Button();
             this.minesweeperLabel = new System.Windows.Forms.Label();
-            this.settingsButton = new System.Windows.Forms.Button();
             this.exitButton = new System.Windows.Forms.Button();
             this.startButton = new System.Windows.Forms.Button();
+            this.gameTimer = new System.Windows.Forms.Timer(this.components);
             this.gameMenuStrip.SuspendLayout();
             this.menuPanel.SuspendLayout();
             this.SuspendLayout();
@@ -60,7 +61,7 @@
             this.restartToolStripMenuItem.Name = "restartToolStripMenuItem";
             this.restartToolStripMenuItem.Size = new System.Drawing.Size(55, 20);
             this.restartToolStripMenuItem.Text = "Restart";
-            this.restartToolStripMenuItem.Click += new System.EventHandler(this.restartToolStripMenuItem_Click);
+            this.restartToolStripMenuItem.Click += new System.EventHandler(this.RestartToolStripMenuItem_Click);
             // 
             // TipToolStripMenuItem
             // 
@@ -80,7 +81,6 @@
             // 
             this.menuPanel.Controls.Add(this.scoreboardButton);
             this.menuPanel.Controls.Add(this.minesweeperLabel);
-            this.menuPanel.Controls.Add(this.settingsButton);
             this.menuPanel.Controls.Add(this.exitButton);
             this.menuPanel.Controls.Add(this.startButton);
             this.menuPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -93,60 +93,53 @@
             // 
             this.scoreboardButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.scoreboardButton.Font = new System.Drawing.Font("Arial Rounded MT Bold", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.scoreboardButton.Location = new System.Drawing.Point(77, 128);
+            this.scoreboardButton.Location = new System.Drawing.Point(79, 169);
             this.scoreboardButton.Name = "scoreboardButton";
             this.scoreboardButton.Size = new System.Drawing.Size(159, 34);
             this.scoreboardButton.TabIndex = 4;
             this.scoreboardButton.Text = "Scoreboard";
             this.scoreboardButton.UseVisualStyleBackColor = true;
-            this.scoreboardButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.scoreboardButton_MouseClick);
+            this.scoreboardButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.ScoreboardButton_MouseClick);
             // 
             // minesweeperLabel
             // 
             this.minesweeperLabel.AutoSize = true;
             this.minesweeperLabel.Font = new System.Drawing.Font("Impact", 20.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
-            this.minesweeperLabel.Location = new System.Drawing.Point(71, 52);
+            this.minesweeperLabel.Location = new System.Drawing.Point(73, 93);
             this.minesweeperLabel.Name = "minesweeperLabel";
             this.minesweeperLabel.Size = new System.Drawing.Size(165, 34);
             this.minesweeperLabel.TabIndex = 3;
             this.minesweeperLabel.Text = "Minesweeper";
             this.minesweeperLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // settingsButton
-            // 
-            this.settingsButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.settingsButton.Font = new System.Drawing.Font("Arial Rounded MT Bold", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.settingsButton.Location = new System.Drawing.Point(77, 168);
-            this.settingsButton.Name = "settingsButton";
-            this.settingsButton.Size = new System.Drawing.Size(159, 34);
-            this.settingsButton.TabIndex = 2;
-            this.settingsButton.Text = "Settings";
-            this.settingsButton.UseVisualStyleBackColor = true;
-            this.settingsButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.settingsButton_MouseClick);
-            // 
             // exitButton
             // 
             this.exitButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.exitButton.Font = new System.Drawing.Font("Arial Rounded MT Bold", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.exitButton.Location = new System.Drawing.Point(77, 208);
+            this.exitButton.Location = new System.Drawing.Point(79, 209);
             this.exitButton.Name = "exitButton";
             this.exitButton.Size = new System.Drawing.Size(159, 34);
             this.exitButton.TabIndex = 1;
             this.exitButton.Text = "Exit";
             this.exitButton.UseVisualStyleBackColor = true;
-            this.exitButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.exitButton_MouseClick);
+            this.exitButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.ExitButton_MouseClick);
             // 
             // startButton
             // 
             this.startButton.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.startButton.Font = new System.Drawing.Font("Arial Rounded MT Bold", 15.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.startButton.Location = new System.Drawing.Point(77, 89);
+            this.startButton.Location = new System.Drawing.Point(79, 130);
             this.startButton.Name = "startButton";
             this.startButton.Size = new System.Drawing.Size(159, 33);
             this.startButton.TabIndex = 0;
             this.startButton.Text = "Start";
             this.startButton.UseVisualStyleBackColor = true;
-            this.startButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.startButton_MouseClick);
+            this.startButton.MouseClick += new System.Windows.Forms.MouseEventHandler(this.StartButton_MouseClick);
+            // 
+            // gameTimer
+            // 
+            this.gameTimer.Interval = 1000;
+            this.gameTimer.Tick += new System.EventHandler(this.Timer1_Tick);
             // 
             // Form1
             // 
@@ -177,10 +170,10 @@
         private System.Windows.Forms.Panel menuPanel;
         private System.Windows.Forms.Button exitButton;
         private System.Windows.Forms.Button startButton;
-        private System.Windows.Forms.Button settingsButton;
         private System.Windows.Forms.Label minesweeperLabel;
         private System.Windows.Forms.ToolStripMenuItem BackToMenuToolStripMenuItem;
         private System.Windows.Forms.Button scoreboardButton;
+        private System.Windows.Forms.Timer gameTimer;
     }
 }
 

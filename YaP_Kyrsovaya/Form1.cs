@@ -1,34 +1,216 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using OfficeOpenXml;
 
 namespace YaP_Kyrsovaya
 {
     public partial class Form1 : Form
     {
         private bool gameOver = false;
+        private bool gameWin = false;
+        private bool gameWasStarted = false;
         private const int CellSize = 30;
         private int MapWidth = 8;
         private int MapHeight = 8;
         private int minesToPlace;
+        private int flagsCount;
+        private int time;
         private Cell[,] cells;
+        private TableLayoutPanel scoreboardTable;
         private Panel selectLevelPanel;
         private TextBox mapWidthTextBox;
         private TextBox mapHeightTextBox;
         private TextBox minesTextBox;
         private Panel gamePanel;
+        private Panel gameWinPanel;
         private Size gamePanelSize;
         private Flag flag;
+        private Label mineCountLabel;
+        private Label timeCountLabel;
+        private string level;
         public Form1()
         {
             InitializeComponent();
             InitializeSelectLevelPanel();
+            InitializeScoreboardTable();
+            InitializeGameWinPanel();
+        }
+        private (string, int)[,] ReadDataFromScoreboard()
+        {
+            string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            string relativePath = @"..\..\Resources\Scoreboard.xlsx";
+            string filePath = Path.Combine(projectDirectory, relativePath);
+            string fullPath = Path.GetFullPath(filePath);
+
+            FileInfo fileInfo = new FileInfo(fullPath);
+            using (var package = new ExcelPackage(fileInfo))
+            {
+                ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial; // Лицензия
+                ExcelWorksheet worksheet = package.Workbook.Worksheets[0]; // Первый лист
+
+                int rowCount = worksheet.Dimension.Rows;
+                int colCount = worksheet.Dimension.Columns;
+
+                (string, int)[,] scoreboard = new (string, int)[3, 10];
+                for (int row = 2; row <= rowCount; row++)
+                {
+                    string nickname = worksheet.Cells[row, 1].Text;
+                    int levelIndex = (row - 2)/ 10;
+                    int scoreIndex = (row - 2) % 10;
+                    if (int.TryParse(worksheet.Cells[row, 2].Text, out int parsedScore))
+                    {
+                        scoreboard[levelIndex, scoreIndex] = (nickname, parsedScore);
+                    }
+                    else
+                    {
+                        throw new Exception("In score exist NaN");
+                    }
+                }
+                return scoreboard;
+            }
+        }
+        private void ChangeDataInScoreboard((string, int)[,] scoreboard, string winNickname, int winTime)
+        {
+            int i;
+            switch (level)
+            {
+                case "Easy":
+                    i = 0;
+                    break;
+                case "Normal":
+                    i = 1;
+                    break;
+                case "Hard":
+                    i = 2;
+                    break;
+                default:
+                    throw new Exception("Level difficulty not selected");
+            }
+            for (int j = 0; j < scoreboard.GetLength(1); j++)
+            {
+                if (winTime < scoreboard[i, j].Item2)
+                {
+                    // Получение полного пути к файлу
+                    string projectDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                    string relativePath = @"..\..\Resources\Scoreboard.xlsx";
+                    string filePath = Path.Combine(projectDirectory, relativePath);
+                    string fullPath = Path.GetFullPath(filePath);
+
+                    FileInfo fileInfo = new FileInfo(fullPath);
+                    using (var package = new ExcelPackage(fileInfo))
+                    {
+                        ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial; // Лицензия
+                        ExcelWorksheet worksheet = package.Workbook.Worksheets[0]; // Первый лист
+
+                        worksheet.Cells[10 * i + j + 2, 1].Value = winNickname;
+                        worksheet.Cells[10 * i + j + 2, 2].Value = winTime;
+                        package.Save();
+                        InitializeScoreboardTable(); // Обновление таблицы
+                        break;
+                    }
+                }
+            }
+        }
+        private void InitializeGameWinPanel()
+        {
+            gameWinPanel = new Panel()
+            {
+                Size = new Size(336, 390),
+                Location = new Point(0, 0),
+                Visible = false
+            };
+            this.Controls.Add(gameWinPanel);
+
+            Label winLabel = new Label()
+            {
+                Size = new Size(330, 34),
+                Location = new Point(3, 80),
+                Font = new Font("Impact", 24),
+                ForeColor = Color.DarkRed,
+                Text = "You win!!!",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            gameWinPanel.Controls.Add(winLabel);
+
+            Label enterNicknameLabel = new Label()
+            {
+                Size = new Size(330, 34),
+                Location = new Point(3, 120),
+                Font = new Font("Impact", 20),
+                Text = "Enter your nickname",
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            gameWinPanel.Controls.Add(enterNicknameLabel);
+
+            TextBox enterNicknameTextBox = new TextBox()
+            {
+                Size = new Size(160, 34),
+                Location = new Point(85, 152),
+                Font = new Font("Times New Roman", 14)
+            };
+            enterNicknameTextBox.KeyDown += EnterNicknameTextBox_KeyDown;
+            gameWinPanel.Controls.Add(enterNicknameTextBox);
+        }
+        private void EnterNicknameTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                TextBox textBox = sender as TextBox;
+                string winNickname = textBox.Text;
+                AddWinnerToTheScoreboard(winNickname);
+            }
+        }
+        private void AddWinnerToTheScoreboard(string winNickname)
+        {
+            (string, int)[,] scoreboard = ReadDataFromScoreboard();
+            ChangeDataInScoreboard(scoreboard, winNickname, time);
+            gameWinPanel.Visible = false;
+            scoreboardTable.Visible = true;
+            this.Size = new Size(200, 540);
+        }
+
+        private void InitializeScoreboardTable()
+        {
+            if (scoreboardTable != null) { this.Controls.Remove(scoreboardTable); }
+            scoreboardTable = new TableLayoutPanel()
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                AutoSize = true
+            };
+            (string, int)[,] scoreboard = ReadDataFromScoreboard();
+            Font titleFont = new Font("Impact", 16);
+            scoreboardTable.Controls.Add(new Label() { Text = "Name", Font = titleFont }, 0, 0);
+            scoreboardTable.Controls.Add(new Label() { Text = "Time", Font = titleFont }, 1, 0);
+
+            for (int i = 0; i < scoreboard.GetLength(0); i++)
+            {
+                string level = i == 0 ? "Easy" : i == 1 ? "Normal" : "Hard";
+                Label levelLabel = new Label() { Text = level, AutoSize = true, Font = new Font("Arial", 12, FontStyle.Bold) };
+                scoreboardTable.RowCount += 1;
+                scoreboardTable.Controls.Add(levelLabel, 0, scoreboardTable.RowCount - 1);
+                scoreboardTable.SetColumnSpan(levelLabel, 2); // Объединяем две колонки для заголовка уровня
+
+                for (int j = 0; j < scoreboard.GetLength(1); j++)
+                {
+                    scoreboardTable.RowCount += 1;
+                    scoreboardTable.Controls.Add(new Label() { Text = scoreboard[i, j].Item1, AutoSize = true }, 0, scoreboardTable.RowCount - 1);
+                    scoreboardTable.Controls.Add(new Label() { Text = scoreboard[i, j].Item2.ToString(), AutoSize = true }, 1, scoreboardTable.RowCount - 1);
+                }
+            }
+            scoreboardTable.Visible = false;
+            this.Controls.Add(scoreboardTable);
         }
         private void InitializeSelectLevelPanel()
         {
@@ -153,6 +335,7 @@ namespace YaP_Kyrsovaya
             MapWidth = 8;
             MapHeight = 8;
             minesToPlace = 10;
+            level = "Easy";
             CalculateFormSizeAndShowGame();
         }
         private void NormalLevelButton_Click(object sender, EventArgs e)
@@ -160,6 +343,7 @@ namespace YaP_Kyrsovaya
             MapWidth = 16;
             MapHeight = 16;
             minesToPlace = 40;
+            level = "Normal";
             CalculateFormSizeAndShowGame();
         }
         private void HardLevelButton_Click(object sender, EventArgs e)
@@ -167,10 +351,12 @@ namespace YaP_Kyrsovaya
             MapWidth = 30;
             MapHeight = 16;
             minesToPlace = 99;
+            level = "Hard";
             CalculateFormSizeAndShowGame();
         }
         private void CustomLevelButton_Click(object sender, EventArgs e)
         {
+            level = null;
             MessageBoxIcon icon = MessageBoxIcon.Error;
             if (int.TryParse(mapWidthTextBox.Text, out int parsedWidth) &&
                 int.TryParse(mapHeightTextBox.Text, out int parsedHeight) &&
@@ -184,6 +370,11 @@ namespace YaP_Kyrsovaya
                 else if (parsedHeight > 30)
                 {
                     MessageBox.Show("Height must be less than 30", "Error", MessageBoxButtons.OK, icon);
+                }
+                else if (parsedWidth > 3 && parsedHeight > 3 && parsedMines > parsedWidth * parsedHeight - 9)
+                {
+                    
+                    MessageBox.Show($"For this map size the maximum number of mines {parsedWidth * parsedHeight - 9}", "Error", MessageBoxButtons.OK, icon);
                 }
                 else if (parsedMines > parsedWidth * parsedHeight)
                 {
@@ -205,17 +396,36 @@ namespace YaP_Kyrsovaya
         private void CalculateFormSizeAndShowGame()
         {
             cells = new Cell[MapWidth, MapHeight];
-            gamePanelSize = new Size(MapWidth * CellSize + 80, MapHeight * CellSize + 110);
+            if (MapWidth * CellSize + 80 > 320 && MapHeight * CellSize + 110 > 330)
+            {
+                gamePanelSize = new Size(MapWidth * CellSize + 80, MapHeight * CellSize + 110);
+            }
+            else if (MapWidth * CellSize + 80 > 320)
+            {
+                gamePanelSize = new Size(MapWidth * CellSize + 80, 330);
+            }
+            else if (MapHeight * CellSize + 110 > 330)
+            {
+                gamePanelSize = new Size(320, MapHeight * CellSize + 110);
+            }
+            else
+            {
+                gamePanelSize = new Size(320, 330);
+            }
             InitializeGamePanel();
             
             this.Size = new Size(gamePanel.Size.Width + 16, gamePanel.Size.Height + 40);
 
             selectLevelPanel.Visible = false;
+            flagsCount = 0;
             gameMenuStrip.Visible = true;
         }
         private void InitializeGamePanel()
         {
             gameOver = false;
+            gameWin = false;
+            time = 0;
+            flagsCount = 0;
             if (gamePanel != null) { this.Controls.Remove(gamePanel); }
             gamePanel = new Panel()
             {
@@ -224,11 +434,29 @@ namespace YaP_Kyrsovaya
             };
             this.Controls.Add(gamePanel);
 
+            mineCountLabel = new Label()
+            {
+                Size = new Size(110, 30),
+                Location = new Point(20, 25),
+                Font = new Font("Arial", 14),
+                Text = "Mines: " + minesToPlace.ToString(),
+            };
+            gamePanel.Controls.Add(mineCountLabel);
+
+            timeCountLabel = new Label()
+            {
+                Size = new Size(100, 30),
+                Location = new Point(gamePanel.Width - 110, 25),
+                Font = new Font("Arial", 14),
+                Text = "Time: 0",
+            };
+            gamePanel.Controls.Add(timeCountLabel);
+
             flag = new Flag()
             {
                 Size = new Size(CellSize, CellSize),
                 Location = new Point(gamePanel.Size.Width / 2 - CellSize / 2, 25),
-                BackColor = Color.LightGray,
+                BackColor = SystemColors.Control,
                 BackgroundImageLayout = ImageLayout.Stretch,
                 FlatStyle = FlatStyle.Flat,
             };
@@ -240,21 +468,26 @@ namespace YaP_Kyrsovaya
             {
                 for (int y = 0; y < MapHeight; y++)
                 {
+                    int shiftToAlign_x = (gamePanel.Width - MapWidth * CellSize) / 2;
+                    int shiftToAlign_y = (gamePanel.Height - 60 - MapHeight * CellSize) / 2 + 60;
                     Cell cell = new Cell()
                     {
                         Size = new Size(CellSize, CellSize),
-                        Location = new Point(x * CellSize + 40, y * CellSize + 60),
+                        Location = new Point(x * CellSize + shiftToAlign_x, y * CellSize + shiftToAlign_y),
                         Font = new Font(FontFamily.GenericSansSerif, 10, FontStyle.Bold),
-                        BackgroundImageLayout = ImageLayout.Stretch
-                };
-                    cell.x = x;
-                    cell.y = y;
+                        BackgroundImageLayout = ImageLayout.Stretch,
+                        TextImageRelation = TextImageRelation.ImageBeforeText,
+                        x = x,
+                        y = y
+                    };
                     cell.Click += Cell_Click;
                     gamePanel.Controls.Add(cell);
                     cells[x, y] = cell;
                 }
             }
-
+        }
+        private void AddMinesToTheGamePanel(int ClickedCell_x, int ClickedCell_y)
+        {
             // Случайное размещение мин
             Random rand = new Random();
             int mines = minesToPlace;
@@ -262,8 +495,20 @@ namespace YaP_Kyrsovaya
             {
                 int x = rand.Next(MapWidth);
                 int y = rand.Next(MapHeight);
+                bool mineInStartLocation = false;
 
-                if (!cells[x, y].IsMine)
+                if (MapWidth > 3 && MapHeight > 3)
+                {
+                    for (int i = -1; i <= 1; i++)
+                    {
+                        for (int j = -1; j <= 1; j++)
+                        {
+                            if (x == ClickedCell_x + i && y == ClickedCell_y + j) { mineInStartLocation = true; }
+                        }
+                    }
+                }
+
+                if (!cells[x, y].IsMine && !mineInStartLocation)
                 {
                     cells[x, y].IsMine = true;
                     mines--;
@@ -298,31 +543,46 @@ namespace YaP_Kyrsovaya
         }
         private void Cell_Click(object sender, EventArgs e)
         {
-            if (!gameOver)
+            if (!gameOver && !gameWin)
             {
                 Cell clickedCell = sender as Cell;
+                if (!gameWasStarted)
+                {
+                    AddMinesToTheGamePanel(clickedCell.x, clickedCell.y);
+                    gameWasStarted = true;
+                    gameTimer.Start();
+                }
                 if (!clickedCell.IsOpened)
                 {
                     if (flag.Active && clickedCell.IsFlagged)
                     {
+                        flagsCount -= 1;
+                        mineCountLabel.Text = "Mines: " + (minesToPlace - flagsCount).ToString();
                         clickedCell.IsFlagged = false;
                         clickedCell.BackgroundImage = null;
                     }
                     else if (flag.Active && !clickedCell.IsFlagged)
                     {
-                        clickedCell.IsFlagged = true;
-                        clickedCell.BackgroundImage = Properties.Resources.flag;
+                        if (minesToPlace - flagsCount > 0)
+                        {
+                            flagsCount += 1;
+                            mineCountLabel.Text = "Mines: " + (minesToPlace - flagsCount).ToString();
+                            clickedCell.IsFlagged = true;
+                            clickedCell.BackgroundImage = Properties.Resources.flag2;
+                        }
                     }
                     else if (!flag.Active && clickedCell.IsFlagged) { }
                     else
                     {
                         if (clickedCell.IsMine)
                         {
+                            gameTimer.Stop();
+                            gameWasStarted = false;
                             clickedCell.BackColor = Color.Red;
+                            clickedCell.BackgroundImage = Properties.Resources.mine;
                             gameOver = true;
                             OpenAllMines();
                             MessageBox.Show("Game Over!");
-                            // Перезапуск игры или завершение
                         }
                         else
                         {
@@ -330,6 +590,32 @@ namespace YaP_Kyrsovaya
                         }
                     }
                 }
+            }
+            gameWin = true;
+            for (int x = 0; x < MapWidth; x++)
+            {
+                for (int y = 0; y < MapHeight; y++)
+                {
+                    if (!cells[x, y].IsOpened && !cells[x, y].IsMine)
+                    {
+                        gameWin = false;
+                        break;
+                    }
+                }
+                if (!gameWin) { break; }
+            }
+            if (gameWin && level != null)
+            {
+                gameTimer.Stop();
+                gamePanel.Visible = false;
+                gameMenuStrip.Visible = false;
+                gameWinPanel.Visible = true;
+                this.Size = new Size(336, 390);
+            }
+            else if (gameWin)
+            {
+                gameTimer.Stop();
+                MessageBox.Show("You win!!! You time: " + time.ToString());
             }
         }
         private void OpenAllMines()
@@ -341,7 +627,10 @@ namespace YaP_Kyrsovaya
                     if (cells[x, y].IsMine)
                     {
                         cells[x, y].IsOpened = true;
-                        cells[x, y].BackColor = Color.Red;
+                        if (!cells[x,y].IsFlagged)
+                        {
+                            cells[x, y].BackgroundImage = Properties.Resources.mine;
+                        }
                     }
                 }
             }
@@ -350,31 +639,35 @@ namespace YaP_Kyrsovaya
         {
             if (!cell.IsOpened)
             {
-                cell.IsOpened = true;
-                cell.BackColor = Color.LightGray;
-
-                if (cell.MinesNearly > 0)
+                if (!cell.IsFlagged)
                 {
-                    cell.Text = cell.MinesNearly.ToString();
-                }
-                else // Открытие соседних ячеек, если мин поблизости нет
-                {
-                    int x = cell.x;
-                    int y = cell.y;
-                    for (int i = -1; i <= 1; i++)
+                    cell.IsOpened = true;
+                    cell.BackColor = SystemColors.Control;
+                    if (cell.MinesNearly > 0)
                     {
-                        for (int j = -1; j <= 1; j++)
+                        int minesNearly = cell.MinesNearly;
+                        cell.Text = minesNearly.ToString();
+                    }
+                    else // Открытие соседних ячеек, если мин поблизости нет
+                    {
+                        int x = cell.x;
+                        int y = cell.y;
+                        for (int i = -1; i <= 1; i++)
                         {
-                            if (x + i >= 0 && x + i < MapWidth && y + j >= 0 && y + j < MapHeight)
+                            for (int j = -1; j <= 1; j++)
                             {
-                                if (!cells[x + i, y + j].IsMine)
+                                if (x + i >= 0 && x + i < MapWidth && y + j >= 0 && y + j < MapHeight)
                                 {
-                                    OpenCell(cells[x + i, y + j]);
+                                    if (!cells[x + i, y + j].IsMine)
+                                    {
+                                        OpenCell(cells[x + i, y + j]);
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                
             }
         }
         private void Flag_Click(object sender, EventArgs e)
@@ -383,7 +676,7 @@ namespace YaP_Kyrsovaya
             if (clickedFlag.Active == false)
             {
                 clickedFlag.Active = true;
-                clickedFlag.BackgroundImage = Properties.Resources.flag;
+                clickedFlag.BackgroundImage = Properties.Resources.flag2;
             }
             else
             {
@@ -391,25 +684,11 @@ namespace YaP_Kyrsovaya
                 clickedFlag.BackgroundImage = null;
             }
         }
-
-        private void startButton_MouseClick(object sender, MouseEventArgs e)
+        private void StartButton_MouseClick(object sender, MouseEventArgs e)
         {
             if (gamePanel != null)
             {
-                bool gameWasStarted = false;
-                for (int x = 0; x < MapWidth; x++) // Проверка что игра была начата
-                {
-                    for (int y = 0; y < MapHeight; y++)
-                    {
-                        if (cells[x, y].IsOpened == true)
-                        {
-                            gameWasStarted = true;
-                            break;
-                        }
-                        if (gameWasStarted) { break; }
-                    }
-                }
-                if (gameWasStarted)
+                if (gameWasStarted) // Проверка, что игра была начата
                 {
                     MessageBoxButtons yesNoButtons = MessageBoxButtons.YesNo;
                     DialogResult result = MessageBox.Show("You have an unfinished game, do you want to continue?", "Unfinished Game", yesNoButtons);
@@ -419,9 +698,11 @@ namespace YaP_Kyrsovaya
                         this.Size = new Size(gamePanel.Size.Width + 16, gamePanel.Size.Height + 40);
                         gamePanel.Visible = true;
                         gameMenuStrip.Visible = true;
+                        gameTimer.Start();
                     }
                     else
                     {
+                        gameWasStarted = false;
                         menuPanel.Visible = false;
                         selectLevelPanel.Visible = true;
                     }
@@ -438,25 +719,24 @@ namespace YaP_Kyrsovaya
                 selectLevelPanel.Visible = true;
             }
         }
-        private void scoreboardButton_MouseClick(object sender, MouseEventArgs e)
+        private void ScoreboardButton_MouseClick(object sender, MouseEventArgs e)
         {
-
+            menuPanel.Visible = false;
+            scoreboardTable.Visible = true;
+            this.Size = new Size(200, 540);
         }
-
-        private void settingsButton_MouseClick(object sender, MouseEventArgs e)
-        {
-
-        }
-        private void exitButton_MouseClick(object sender, MouseEventArgs e)
+        private void ExitButton_MouseClick(object sender, MouseEventArgs e)
         {
             Application.Exit();
         }
 
-        private void restartToolStripMenuItem_Click(object sender, EventArgs e)
+        private void RestartToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            gameTimer.Stop();
             this.Controls.Remove(gamePanel);
             cells = new Cell[MapWidth, MapHeight];
             InitializeGamePanel();
+            gameWasStarted = false;
         }
 
         private void TipToolStripMenuItem_Click(object sender, EventArgs e)
@@ -466,6 +746,7 @@ namespace YaP_Kyrsovaya
 
         private void BackToMenuToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            gameTimer.Stop();
             this.Size = new Size(336, 390);
             gamePanel.Visible = false;
             gameMenuStrip.Visible = false;
@@ -474,7 +755,28 @@ namespace YaP_Kyrsovaya
 
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.F && flag != null) { Flag_Click(flag, null); }
+            if (e.KeyCode == Keys.F && flag != null && gamePanel.Visible == true) { Flag_Click(flag, null); }
+            else if (e.KeyCode == Keys.Escape && selectLevelPanel.Visible == true) // Из выбора уровня в меню
+            {
+                selectLevelPanel.Visible = false;
+                menuPanel.Visible = true;
+            }
+            else if (e.KeyCode == Keys.Escape && gamePanel != null && gamePanel.Visible == true) // Из игры в меню
+            {
+                BackToMenuToolStripMenuItem_Click(sender, null);
+            }
+            else if (e.KeyCode == Keys.Escape && scoreboardTable != null && scoreboardTable.Visible == true) // Из таблицы лидеров в меню
+            {
+                scoreboardTable.Visible = false;
+                menuPanel.Visible = true;
+                this.Size = new Size(336, 390);
+            }
+        }
+
+        private void Timer1_Tick(object sender, EventArgs e)
+        {
+            time += 1;
+            timeCountLabel.Text = "Time: " + time.ToString();
         }
     }
     public class Cell : Button
@@ -504,13 +806,4 @@ namespace YaP_Kyrsovaya
             Active = false;
         }
     }
-    /*
-    Перерисовать флаг с цветом фона SystemColors.Control
-    Добавить победу
-    Мина картинкой
-    Дизайн клеток
-    Табло мин и времени
-    Таблица лидеров
-    Начало игры с пустых клеток
-    */
 }
